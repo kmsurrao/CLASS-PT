@@ -1,7 +1,7 @@
 /** @file background.c Documented background module
  *
  * * Julien Lesgourgues, 17.04.2011
- * * routines related to ncdm written by T. Tram in 2011
+ * * routines relate to ncdm written by T. Tram in 2011
  *
  * Deals with the cosmological background evolution.
  * This module has two purposes:
@@ -326,6 +326,12 @@ int background_functions(
     rho_tot += pvecback[pba->index_bg_rho_dr];
     p_tot += (1./3.)*pvecback[pba->index_bg_rho_dr];
     rho_r += pvecback[pba->index_bg_rho_dr];
+
+    // class_dcdm_sr modifications
+    // add the extra photos to the radiation density
+    if (pba->dr_is_sr ==  1){
+      pvecback[pba->index_bg_rho_g] += pvecback[pba->index_bg_rho_dr];
+    }
   }
 
   /* Scalar field */
@@ -1760,6 +1766,18 @@ int background_solve(
     printf(" -> conformal age = %f Mpc\n",pba->conformal_age);
   }
 
+  // class_dcdm_sr modifications
+  if ((pba->has_dcdm == _TRUE_)&&(pba->has_dr == _TRUE_)&&(pba->dr_is_sr == _TRUE_)){
+        // rho_g = M_dr_is_sr.get_background()['(.)rho_g']
+        double rho_g_lcdm = pba->Omega0_g*(pba->H0*pba->H0);
+        // T_cmb_eff = T_cmb*(rho_g/rho_g_lcdm)**0.25
+        // this is the temperature of the photons including the ones
+        // produced by decays
+        double T_cmb_dcdmsr = pba->T_cmb*pow(pvecback[pba->index_bg_rho_g]/rho_g_lcdm,0.25);
+        pba->T_cmb_dcdmsr = T_cmb_dcdmsr;
+
+  }
+
   if (pba->background_verbose > 2) {
     if ((pba->has_dcdm == _TRUE_)&&(pba->has_dr == _TRUE_)){
       printf("    Decaying Cold Dark Matter details: (DCDM --> DR)\n");
@@ -1768,6 +1786,34 @@ int background_solve(
       printf("     -> Omega0_dr+Omega0_dcdm = %f, input value = %f\n",
              pba->Omega0_dr+pba->Omega0_dcdm,pba->Omega0_dcdmdr);
       printf("     -> Omega_ini_dcdm/Omega_b = %f\n",pba->Omega_ini_dcdm/pba->Omega0_b);
+      
+      // class_dcdm_sr modifications
+      printf("########################\n");
+      printf("  dr_is_sr = %d\n",pba->dr_is_sr );
+      printf("########################\n");
+     if(pba->dr_is_sr == _TRUE_){
+        printf("     treating dr as standard radiation.\n");
+        printf("     T_cmb_dcdmsr = %.8e\n",pba->T_cmb_dcdmsr);
+        double sigma_B; /* Stefan-Boltzmann constant in \f$ W/m^2/K^4 = Kg/K^4/s^3 \f$*/
+        sigma_B = 2. * pow(_PI_,5) * pow(_k_B_,4) / 15. / pow(_h_P_,3) / pow(_c_,2);
+        double Omega_0_g_lcdm = (4.*sigma_B/_c_*pow(pba->T_cmb,4.)) / (3.*_c_*_c_*1.e10*pba->h*pba->h/_Mpc_over_m_/_Mpc_over_m_/8./_PI_/_G_);
+        printf("     -> Omega_ini_dcdm/Omega_0_g_lcdm = %f\n",pba->Omega_ini_dcdm/Omega_0_g_lcdm);
+        double lambda_dcdm = pba->Gamma_dcdm/pba->H0/sqrt(pba->Omega0_m);
+        printf("     -> Gamma =  %f km/s/Mpc\n",pba->Gamma_dcdm/(1.e3 / _c_));
+        printf("     -> H0 =  %f km/s/Mpc\n",pba->H0/(1.e3 / _c_));
+        printf("     -> Lambda = (Gamma/H0/Omega_m**0.5) = %f\n",lambda_dcdm);
+        double dT_cmb_dT_cmb_dcdmsr_approx_linearized = -1./4.*pba->Omega_ini_dcdm/Omega_0_g_lcdm
+                                      *pow(2.*lambda_dcdm/3.,-2./3.)
+                                      *(gsl_sf_gamma_inc(5./3., 0.)-gsl_sf_gamma_inc(5./3., 2.*lambda_dcdm/3.));
+        double u_dcdm = -4.*dT_cmb_dT_cmb_dcdmsr_approx_linearized*pow(pba->T_cmb,4.);
+        double T_cmb_dcdmsr_approx = pow(1.-4.*dT_cmb_dT_cmb_dcdmsr_approx_linearized,0.25)*pba->T_cmb;
+        double dT_cmb_dT_cmb_dcdmsr_approx = pow(1.-u_dcdm/pow(pba->T_cmb_dcdmsr,4.),-3./4.);
+        printf("     -> T_cmb (guess) = %.8e  K\n",pba->T_cmb);
+        printf("     -> T_cmb_dcdmsr (from guess) = %.8e  K\n",pba->T_cmb_dcdmsr);
+        printf("     -> T_cmb_dcdmsr (approx.)= %.8e  K\n",T_cmb_dcdmsr_approx);
+        printf("     -> dT_cmb_dT_cmb_dcdmsr (approx)= %f\n",dT_cmb_dT_cmb_dcdmsr_approx );
+        printf(" \n");
+     }
     }
     if (pba->has_scf == _TRUE_){
       printf("    Scalar field details:\n");

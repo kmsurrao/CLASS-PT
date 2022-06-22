@@ -34,7 +34,7 @@ PYTHON ?= python
 
 # your optimization flag
 OPTFLAG = -O4 -ffast-math
-#OPTFLAG = -O4 -ffast-math -lgsl -lgslcblas -lfftw3 -lm #-march=native
+#OPTFLAG = -O4 -ffast-math -lgsl -lgslcblas -lm #-march=native
 #OPTFLAG = -fast
 
 # your openmp flag (comment for compiling without openmp)
@@ -43,7 +43,7 @@ OMPFLAG   = -fopenmp
 #OMPFLAG   = -openmp
 
 # all other compilation flags
-CCFLAG = -g -fPIC -ggdb3
+CCFLAG = -g -fPIC #-ggdb3
 LDFLAG = -g -fPIC
 
 # leave blank to compile without HyRec, or put path to HyRec directory
@@ -51,7 +51,7 @@ LDFLAG = -g -fPIC
 HYREC = hyrec
 
 #put your path to libopenblas.a here
-OPENBLAS = /Users/gcabass/anaconda3/envs/openblas_test/lib/libopenblas.dylib
+OPENBLAS = /global/homes/k/kmsurrao/anaconda3/lib/libopenblas.so
 
 ########################################################
 ###### IN PRINCIPLE THE REST SHOULD BE LEFT UNCHANGED ##
@@ -61,7 +61,7 @@ OPENBLAS = /Users/gcabass/anaconda3/envs/openblas_test/lib/libopenblas.dylib
 CCFLAG += -D__CLASSDIR__='"$(MDIR)"'
 
 # where to find include files *.h
-INCLUDES = -I../include
+INCLUDES = -I../include -I/usr/local/include/ 
 
 # automatically add external programs if needed. First, initialize to blank.
 EXTERNAL =
@@ -78,7 +78,7 @@ endif
 %.o:  %.c .base
 	cd $(WRKDIR);$(CC) $(OPTFLAG) $(OMPFLAG) $(CCFLAG) $(INCLUDES) -c ../$< -o $*.o
 
-TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.o parser.o quadrature.o hyperspherical.o common.o
+TOOLS = growTable.o dei_rkck.o sparse.o evolver_rkck.o  evolver_ndf15.o arrays.o parser.o quadrature.o hyperspherical.o common.o trigonometric_integrals.o
 
 SOURCE = input.o background.o thermodynamics.o perturbations.o primordial.o nonlinear.o nonlinear_pt.o transfer.o spectra.o lensing.o
 
@@ -147,7 +147,7 @@ libclass.a: $(TOOLS) $(SOURCE) $(EXTERNAL)
 	$(AR)  $@ $(addprefix build/, $(TOOLS) $(SOURCE) $(EXTERNAL))
 
 class: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(CLASS)
-	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o class $(addprefix build/,$(notdir $^)) $(OPENBLAS) -lpthread -lm
+	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o class $(addprefix build/,$(notdir $^)) $(OPENBLAS) -lpthread -lm -L/usr/local/lib -lgsl -lgslcblas
 
 test_sigma: $(TOOLS) $(SOURCE) $(EXTERNAL) $(OUTPUT) $(TEST_SIGMA)
 	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o test_sigma $(addprefix build/,$(notdir $^)) -lm
@@ -168,7 +168,7 @@ test_transfer: $(TOOLS) $(SOURCE) $(EXTERNAL) $(TEST_TRANSFER)
 	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_nonlinear: $(TOOLS) $(SOURCE) $(EXTERNAL) $(TEST_NONLINEAR)
-	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm #-lgsl -lgslcblas
+	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm
 
 test_perturbations: $(TOOLS) $(SOURCE) $(EXTERNAL) $(TEST_PERTURBATIONS)
 	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o  $@ $(addprefix build/,$(notdir $^)) -lm

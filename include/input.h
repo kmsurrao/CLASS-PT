@@ -16,6 +16,7 @@
 #include "nonlinear_pt.h"
 #include "lensing.h"
 #include "output.h"
+#include "gsl/gsl_sf_gamma.h" //class_dcdm_sr modification
 
 /* macro for reading parameter values with routines from the parser */
 #define class_read_double(name,destination)				\
@@ -135,10 +136,10 @@
  * temporary parameters for background fzero function
  */
 
-enum target_names {theta_s, Omega_dcdmdr, omega_dcdmdr, Omega_scf, Omega_ini_dcdm, omega_ini_dcdm, sigma8};
+enum target_names {theta_s, Omega_dm_tot, Omega_dcdmdr, omega_dcdmdr, Omega_scf, Omega_ini_dcdm, omega_ini_dcdm, omega_ini_dcdm_hat, f_dm_decay, sigma8, T_cmb_dcdmsr}; //class_dcdm_sr modification
 enum computation_stage {cs_background, cs_thermodynamics, cs_perturbations,
                         cs_primordial, cs_nonlinear, cs_nonlinear_pt, cs_transfer, cs_spectra};
-#define _NUM_TARGETS_ 7 //Keep this number as number of target_names
+#define _NUM_TARGETS_ 11 //Keep this number as number of target_names //class_dcdm_sr modification
 
 struct input_pprpba {
   struct precision * ppr;

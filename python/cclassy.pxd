@@ -39,6 +39,7 @@ cdef extern from "class.h":
         ErrorMsg error_message
         int bg_size
         int index_bg_ang_distance
+        int index_bg_modified_T_cmb
         int index_bg_lum_distance
         int index_bg_conf_distance
         int index_bg_H
@@ -47,6 +48,7 @@ cdef extern from "class.h":
         short long_info
         short inter_normal
         double T_cmb
+        double T_cmb_dcdmsr
         double h
         double H0
         double age

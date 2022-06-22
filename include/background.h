@@ -9,6 +9,7 @@
 #include "arrays.h"
 #include "dei_rkck.h"
 #include "parser.h"
+#include "gsl/gsl_sf_gamma.h" //class_dcdm_sr modification
 
 enum spatial_curvature {flat,open,closed};
 
@@ -42,7 +43,9 @@ struct background
   double Omega0_g; /**< \f$ \Omega_{0 \gamma} \f$: photons */
 
   double T_cmb; /**< \f$ T_{cmb} \f$: current CMB temperature in Kelvins */
+  double T_cmb_dcdmsr; /**< \f$ T_{cmb} \f$: current CMB temperature in Kelvins due to cdm decay into SR*/ //class_dcdm_sr modification
 
+  double f_dm_decay; // f_dm_decay = omega_dcdm/omega_dm woth omega_dm = omega_dcdm + omega_cdm //clss_dcdm_sr modification
   double Omega0_b; /**< \f$ \Omega_{0 b} \f$: baryons */
 
   double Omega0_cdm; /**< \f$ \Omega_{0 cdm} \f$: cold dark matter */
@@ -71,7 +74,8 @@ struct background
   double Omega0_dcdmdr; /**< \f$ \Omega_{0 dcdm}+\Omega_{0 dr} \f$: decaying cold dark matter (dcdm) decaying to dark radiation (dr) */
 
   double Gamma_dcdm; /**< \f$ \Gamma_{dcdm} \f$: decay constant for decaying cold dark matter */
-
+  int dr_is_sr; //class_dcdm_sr modification
+  int use_T_cmb_cobe_in_cs; //class_dcdm_sr modification
   double Omega_ini_dcdm;    /**< \f$ \Omega_{ini,dcdm} \f$: rescaled initial value for dcdm density (see 1407.2418 for definitions) */
 
   double Omega0_scf;        /**< \f$ \Omega_{0 scf} \f$: scalar field */
@@ -136,6 +140,10 @@ struct background
   double Omega0_dcdm; /**< \f$ \Omega_{0 dcdm} \f$: decaying cold dark matter */
   double Omega0_dr; /**< \f$ \Omega_{0 dr} \f$: decay radiation */
 
+  //class_dcdm_sr modifications flag (in class_public but not CLASS_PT)
+  double Omega0_m;  /**< total non-relativistic matter today */
+  double Omega0_r;  /**< total ultra-relativistic radiation today */
+  double Omega0_de; /**< total dark energy density today, currently defined as 1 - Omega0_m - Omega0_r - Omega0_k */
 
   //@}
 
@@ -153,10 +161,14 @@ struct background
 
   int index_bg_a;             /**< scale factor */
   int index_bg_H;             /**< Hubble parameter in \f$Mpc^{-1}\f$ */
+
+
+
   int index_bg_H_prime;       /**< its derivative w.r.t. conformal time */
 
   /* end of vector in short format, now quantities in normal format */
 
+  int index_bg_modified_T_cmb;/**< photon density */ //class_dcdm_sr modification
   int index_bg_rho_g;         /**< photon density */
   int index_bg_rho_b;         /**< baryon density */
   int index_bg_rho_cdm;       /**< cdm density */

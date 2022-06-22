@@ -230,12 +230,11 @@ int input_init(
    *
    * These two arrays must contain the strings of names to be searched
    *  for and the corresponding new parameter */
-  char * const target_namestrings[] = {"100*theta_s","Omega_dcdmdr","omega_dcdmdr",
-                                       "Omega_scf","Omega_ini_dcdm","omega_ini_dcdm","sigma8"};
-  char * const unknown_namestrings[] = {"h","Omega_ini_dcdm","Omega_ini_dcdm",
-                                        "scf_shooting_parameter","Omega_dcdmdr","omega_dcdmdr","A_s"};
-  enum computation_stage target_cs[] = {cs_thermodynamics, cs_background, cs_background,
-                                        cs_background, cs_background, cs_background, cs_spectra};
+  char * const target_namestrings[] = {"100*theta_s","Omega_dm_tot","Omega_dcdmdr","omega_dcdmdr",
+                                       "Omega_scf","Omega_ini_dcdm","omega_ini_dcdm","omega_ini_dcdm_hat","f_dm_decay","sigma8","T_cmb_dcdmsr"};
+  char * const unknown_namestrings[] = {"h","Omega_ini_dcdm","Omega_ini_dcdm","Omega_ini_dcdm","scf_shooting_parameter","Omega_dcdmdr","omega_dcdmdr","omega_dcdmdr","omega_dcdmdr","A_s","T_cmb"};
+  enum computation_stage target_cs[] = {cs_thermodynamics, cs_background, cs_background, cs_background,
+                                        cs_background, cs_background, cs_background, cs_background,cs_background, cs_nonlinear,cs_background};
 
   int input_verbose = 0, int1, aux_flag, shooting_failed=_FALSE_;
 
@@ -668,6 +667,9 @@ int input_read_parameters(
 
   Omega_tot = pba->Omega0_g;
 
+  // class_T0 modifications:
+  double T_cmb_firas = 2.7255;
+
   /** - Omega_0_b (baryons) */
   class_call(parser_read_double(pfc,"Omega_b",&param1,&flag1,errmsg),
              errmsg,
@@ -682,6 +684,13 @@ int input_read_parameters(
     pba->Omega0_b = param1;
   if (flag2 == _TRUE_)
     pba->Omega0_b = param2/pba->h/pba->h;
+
+  // class_T0 modifications:
+  class_call(parser_read_double(pfc,"omega_b_hat",&param2,&flag2,errmsg),
+             errmsg,
+             errmsg);
+  if (flag2 == _TRUE_)
+      pba->Omega0_b = param2/pba->h/pba->h*pow(pba->T_cmb/T_cmb_firas,3.);
 
   Omega_tot += pba->Omega0_b;
 
@@ -763,8 +772,17 @@ int input_read_parameters(
     pba->Omega0_cdm = param1;
   if (flag2 == _TRUE_)
     pba->Omega0_cdm = param2/pba->h/pba->h;
+  
+  // // class_T0 modifications:
+  class_call(parser_read_double(pfc,"omega_cdm_hat",&param2,&flag2,errmsg),
+               errmsg,
+               errmsg);
+    if (flag2 == _TRUE_)
+        pba->Omega0_cdm = param2/pba->h/pba->h*pow(pba->T_cmb/T_cmb_firas,3.);
 
-  Omega_tot += pba->Omega0_cdm;
+
+
+  //Omega_tot += pba->Omega0_cdm;
 
   /** - Omega_0_dcdmdr (DCDM) */
   class_call(parser_read_double(pfc,"Omega_dcdmdr",&param1,&flag1,errmsg),
@@ -797,10 +815,33 @@ int input_read_parameters(
   if (flag2 == _TRUE_)
     pba->Omega_ini_dcdm = param2/pba->h/pba->h;
 
-  /** - Read Gamma in same units as H0, i.e. km/(s Mpc)*/
+  // // class_T0 modifications:
+  class_call(parser_read_double(pfc,"omega_ini_dcdm_hat",&param2,&flag2,errmsg),
+             errmsg,
+             errmsg);
+  if (flag2 == _TRUE_)
+      pba->Omega_ini_dcdm = param2/pba->h/pba->h*pow(pba->T_cmb/T_cmb_firas,3.);
+
+
+    // }
+
+
+
+          /** - Read Gamma in same units as H0, i.e. km/(s Mpc)*/
+        class_read_double("Gamma_dcdm",pba->Gamma_dcdm);
+    // printf("f_dm_decay = %.3e\n",pba->f_dm_decay);
+
+  //} //flag, was uncommented
+
   class_read_double("Gamma_dcdm",pba->Gamma_dcdm);
   /* Convert to Mpc */
   pba->Gamma_dcdm *= (1.e3 / _c_);
+
+  class_read_int("dr_is_sr",pba->dr_is_sr);
+  class_read_int("use_T_cmb_cobe_in_cs",pba->use_T_cmb_cobe_in_cs);
+
+  Omega_tot += pba->Omega0_cdm;
+
 
   /** - non-cold relics (ncdm) */
   class_read_int("N_ncdm",N_ncdm);
@@ -1692,6 +1733,13 @@ int input_read_parameters(
         class_read_double("alpha_s",ppm->alpha_s);
 
       }
+
+    // // class_T0 modifications:
+    class_call(parser_read_double(pfc,"logA_hat",&param2,&flag2,errmsg),
+               errmsg,
+               errmsg);
+    if (flag2 == _TRUE_)
+        ppm->A_s = exp(param2)*1.e-10*pow(pba->T_cmb/T_cmb_firas,1.-ppm->n_s);
 
       if (ppt->has_bi == _TRUE_) {
 
@@ -3139,6 +3187,9 @@ int input_default_params(
   pba->Omega0_dcdmdr = 0.0;
   pba->Omega0_dcdm = 0.0;
   pba->Gamma_dcdm = 0.0;
+  pba->dr_is_sr = 1;
+  pba->use_T_cmb_cobe_in_cs = 0;
+  pba->f_dm_decay = 0.;
   pba->N_ncdm = 0;
   pba->Omega0_ncdm_tot = 0.;
   pba->ksi_ncdm_default = 0.;
@@ -3991,6 +4042,20 @@ int input_try_unknown_parameters(double * unknown_parameter,
         rho_dr_today = 0.;
       output[i] = (rho_dcdm_today+rho_dr_today)/(ba.H0*ba.H0)-pfzw->target_value[i];
       break;
+    case T_cmb_dcdmsr:
+      // printf("T_cmb_dcdmsr (obtained) = %.8e (target) = %.8e\n",ba.T_cmb_dcdmsr,pfzw->target_value[i]);
+      output[i] = ba.T_cmb_dcdmsr - pfzw->target_value[i];
+
+      // printf("\nT_cmb_dcdmsr output[i] = %.8e",output[i]);
+      break;
+    case Omega_dm_tot:
+      rho_dcdm_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_dcdm];
+      if (ba.has_dr == _TRUE_)
+        rho_dr_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_dr];
+      else
+        rho_dr_today = 0.;
+      output[i] = (rho_dcdm_today+rho_dr_today)/(ba.H0*ba.H0)-ba.f_dm_decay*pfzw->target_value[i];
+      break;
     case omega_dcdmdr:
       rho_dcdm_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_dcdm];
       if (ba.has_dr == _TRUE_)
@@ -4006,6 +4071,8 @@ int input_try_unknown_parameters(double * unknown_parameter,
       break;
     case Omega_ini_dcdm:
     case omega_ini_dcdm:
+    case omega_ini_dcdm_hat:
+    case f_dm_decay:
       rho_dcdm_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_dcdm];
       if (ba.has_dr == _TRUE_)
         rho_dr_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_dr];
@@ -4019,6 +4086,19 @@ int input_try_unknown_parameters(double * unknown_parameter,
     }
   }
 
+  rho_dcdm_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_dcdm];
+  rho_dr_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_dr];
+  double Omega_dcdm = (rho_dcdm_today)/(ba.H0*ba.H0);
+  double Omega_dr = (rho_dr_today)/(ba.H0*ba.H0);
+
+  // rho_g = M_dr_is_sr.get_background()['(.)rho_g']
+  // double rho_g_lcdm = ba.Omega0_g*(ba.H0*ba.H0);
+  // T_cmb_eff = T_cmb*(rho_g/rho_g_lcdm)**0.25
+  double T_cmb_dcdmsr = ba.T_cmb_dcdmsr;//ba.T_cmb*pow(ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_g]/rho_g_lcdm,0.25);
+  // printf("Omega_dcdm = %.3e Omega_dr = %.3e\n",Omega_dcdm,Omega_dr);
+  // printf("omega_dcdmdr = %.8e\n",(Omega_dcdm+Omega_dr)*ba.h*ba.h);
+  // printf("Omega_dcdmdr = %.8e\n",(Omega_dcdm+Omega_dr));
+  // printf("T_cmb_dcdmsr = %.8e\n",T_cmb_dcdmsr);
 
   /** - Free structures */
   if (pfzw->required_computation_stage >= cs_spectra){
@@ -4075,6 +4155,11 @@ int input_get_guess(double *xguess,
   double Omega_M, a_decay, gamma, Omega0_dcdmdr=1.0;
   int index_guess;
 
+  // class dcdmsr variables:
+  double sigma_B, T_cmb_lcdm, Omega0_g_lcdm, Omega_ini_dcdm_guess;
+  int counter;
+  double  h_guess, H0_guess, lambda_dcdm, dT_cmb_dT_cmb_dcdmsr_approx_linearized, u_dcdm, T_cmb_approx, dT_cmb_dT_cmb_dcdmsr_approx;
+
   /* Cheat to read only known parameters: */
   pfzw->fc.size -= pfzw->target_size;
   class_call(input_read_parameters(&(pfzw->fc),
@@ -4107,7 +4192,59 @@ int input_get_guess(double *xguess,
       ba.h = xguess[index_guess];
       ba.H0 = ba.h *  1.e5 / _c_;
       break;
+    case T_cmb_dcdmsr:
+      sigma_B = 2. * pow(_PI_,5) * pow(_k_B_,4) / 15. / pow(_h_P_,3) / pow(_c_,2);
+      T_cmb_lcdm = 2.7;
+      Omega0_g_lcdm = (4.*sigma_B/_c_*pow(T_cmb_lcdm,4.)) / (3.*_c_*_c_*1.e10*ba.h*ba.h/_Mpc_over_m_/_Mpc_over_m_/8./_PI_/_G_);
+      Omega_M = ba.Omega0_cdm+ba.Omega0_b;
+
+      // case input Omega_ini_dcdm:
+      // Omega_ini_dcdm_guess;
+      // int counter;
+      for (counter = 0; counter < 11; counter++){
+      if (pfzw->target_name[counter] == 5) break;
+      }
+      Omega_ini_dcdm_guess = pfzw->target_value[counter];
+
+      // case input Omega_dcdmdr:
+      // double Omega_ini_dcdm_guess;
+      // int counter;
+      // for (counter = 0; counter < 10; counter++){
+      // if (pfzw->target_name[counter] == 2) break;
+      // }
+      // Omega_ini_dcdm_guess = xguess[counter];
+
+      // h_guess;
+      for (counter = 0; counter < 11; counter++){
+      if (pfzw->target_name[counter] == 0) break;
+      }
+      h_guess = xguess[counter];
+      H0_guess = h_guess*1.e5 / _c_;
+      lambda_dcdm = ba.Gamma_dcdm/H0_guess/sqrt(Omega_M);
+      dT_cmb_dT_cmb_dcdmsr_approx_linearized = -1./4.*Omega_ini_dcdm_guess/Omega0_g_lcdm
+                                    *pow(2.*lambda_dcdm/3.,-2./3.)
+                                    *(gsl_sf_gamma_inc(5./3., 0.)-gsl_sf_gamma_inc(5./3., 2.*lambda_dcdm/3.));
+      u_dcdm = -4.*dT_cmb_dT_cmb_dcdmsr_approx_linearized*pow(T_cmb_lcdm,4.);
+
+      T_cmb_approx = pfzw->target_value[index_guess]*pow(1.-u_dcdm/pow(pfzw->target_value[index_guess],4.),0.25);
+      dT_cmb_dT_cmb_dcdmsr_approx = pow(1.-u_dcdm/pow(pfzw->target_value[index_guess],4.),-3./4.);
+
+      // printf("     -> T_cmb_dcdmsr (target) = %.8e  K\n",pfzw->target_value[index_guess]);
+      // printf("     -> T_cmb (approx.) (guess) = %.8e  K\n",T_cmb_approx);
+      // printf("     -> dT_cmb_dT_cmb_dcdmsr (approx)= %.8e\n",dT_cmb_dT_cmb_dcdmsr_approx);
+      // printf("     -> Lambda = (Gamma/H0/Omega_m**0.5) = %.8e\n",lambda_dcdm);
+      // printf("     -> u_dcdm/T_cmb_dcdmsr**4 = %.8e\n",u_dcdm/pow(pfzw->target_value[index_guess],4.));
+      // printf("     -> Omega_ini_dcdm_guess = %.8e \n",Omega_ini_dcdm_guess);
+      // printf("     -> h_guess = %.8e \n",h_guess);
+
+      // printf("\n");
+      // exit(0);
+
+      xguess[index_guess] = T_cmb_approx;
+      dxdy[index_guess] = dT_cmb_dT_cmb_dcdmsr_approx;
+      break;
     case Omega_dcdmdr:
+    case Omega_dm_tot:
       Omega_M = ba.Omega0_cdm+ba.Omega0_dcdmdr+ba.Omega0_b;
       /* This formula is exact in a Matter + Lambda Universe, but only
          for Omega_dcdm, not the combined.
@@ -4124,7 +4261,7 @@ int input_get_guess(double *xguess,
         a_decay = pow(1+(gamma*gamma-1.)/Omega_M,-1./3.);
       xguess[index_guess] = pfzw->target_value[index_guess]/a_decay;
       dxdy[index_guess] = 1./a_decay;
-      //printf("x = Omega_ini_guess = %g, dxdy = %g\n",*xguess,*dxdy);
+      // printf("x = Omega_ini_guess = %.8e, dxdy = %g id = %d\n",xguess[index_guess],*dxdy,index_guess);
       break;
     case omega_dcdmdr:
       Omega_M = ba.Omega0_cdm+ba.Omega0_dcdmdr+ba.Omega0_b;
@@ -4165,6 +4302,8 @@ int input_get_guess(double *xguess,
       }
       break;
     case omega_ini_dcdm:
+    case omega_ini_dcdm_hat:
+    case f_dm_decay:
       Omega0_dcdmdr = 1./(ba.h*ba.h);
     case Omega_ini_dcdm:
       /** - This works since correspondence is
@@ -4180,9 +4319,9 @@ int input_get_guess(double *xguess,
       xguess[index_guess] = pfzw->target_value[index_guess]*a_decay;
       dxdy[index_guess] = a_decay;
       if (gamma > 100)
-        dxdy[index_guess] *= gamma/100;
+        dxdy[index_guess] *= gamma/1000;
 
-      //printf("x = Omega_ini_guess = %g, dxdy = %g\n",*xguess,*dxdy);
+      // printf("x = Omega_ini_guess = %g, dxdy = %g %d %.3e\n",*xguess,*dxdy,index_guess,pfzw->target_value[index_guess]);
       break;
 
     case sigma8:
@@ -4303,10 +4442,13 @@ int input_auxillary_target_conditions(struct file_content * pfc,
   */
   switch (target_name){
   case Omega_dcdmdr:
+  case Omega_dm_tot:
   case omega_dcdmdr:
   case Omega_scf:
   case Omega_ini_dcdm:
   case omega_ini_dcdm:
+  case omega_ini_dcdm_hat:
+  case f_dm_decay:
     /* Check that Omega's or omega's are nonzero: */
     if (target_value == 0.)
       *aux_flag = _FALSE_;

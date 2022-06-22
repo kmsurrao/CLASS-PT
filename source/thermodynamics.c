@@ -154,10 +154,14 @@ int thermodynamics_at_z(
 
     /* Calculate Tb */
     pvecthermo[pth->index_th_Tb] = pba->T_cmb*(1.+z);
+    // class_dcdm_sr modifs
+    pvecthermo[pth->index_th_Tb] = pvecback[pba->index_bg_modified_T_cmb];
 
     /* Calculate cb2 (cb2 = (k_B/mu) Tb (1-1/3 dlnTb/dlna) = (k_B/mu) Tb (1+1/3 (1+z) dlnTb/dz)) */
+    /* Calculate baryon equation of state parameter wb = (k_B/mu) Tb */
     /* note that m_H / mu = 1 + (m_H/m_He-1) Y_p + x_e (1-Y_p) */
-    pvecthermo[pth->index_th_cb2] = _k_B_ / ( _c_ * _c_ * _m_H_ ) * (1. + (1./_not4_ - 1.) * pth->YHe + x0 * (1.-pth->YHe)) * pba->T_cmb * (1.+z) * 4. / 3.;
+    // pvecthermo[pth->index_th_cb2] = _k_B_ / ( _c_ * _c_ * _m_H_ ) * (1. + (1./_not4_ - 1.) * pth->YHe + x0 * (1.-pth->YHe)) * pba->T_cmb * (1.+z) * 4. / 3.;
+    pvecthermo[pth->index_th_wb] = _k_B_ / ( _c_ * _c_ * _m_H_ ) * (1. + (1./_not4_ - 1.) * pth->YHe + x0 * (1.-pth->YHe)) * pvecback[pba->index_bg_modified_T_cmb];
 
     /* derivatives of baryon sound speed (only computed if some non-minimal tight-coupling schemes is requested) */
     if (pth->compute_cb2_derivatives == _TRUE_) {
@@ -940,6 +944,8 @@ int thermodynamics_indices(
   index++;
   preco->index_re_Tb = index;
   index++;
+  preco->index_re_wb = index;
+  index++;
   preco->index_re_cb2 = index;
   index++;
 
@@ -954,6 +960,8 @@ int thermodynamics_indices(
   preio->index_re_xe = index;
   index++;
   preio->index_re_Tb = index;
+  index++;
+  preio->index_re_wb = index;
   index++;
   preio->index_re_cb2 = index;
   index++;
@@ -1193,6 +1201,14 @@ int thermodynamics_helium_from_bbn(
   }
 
   fclose(fA);
+
+  // class_dcdm_sr modifications
+  // as in Ivanov+
+  // (do not assume T0=2.7255K)
+  int indexob = 0;
+    for (indexob=0; indexob<num_omegab; indexob++){
+      omegab[indexob] = omegab[indexob]*pow(pba->T_cmb/2.7255,3.);
+    }
 
   /** - spline in one dimension (along deltaN) */
   class_call(array_spline_table_lines(deltaN,
@@ -2517,7 +2533,8 @@ int thermodynamics_reionization_sample(
 
     dTdz=2./(1+z)*preio->reionization_table[i*preio->re_size+preio->index_re_Tb]
       -2.*mu/_m_e_*4.*pvecback[pba->index_bg_rho_g]/3./pvecback[pba->index_bg_rho_b]*opacity*
-      (pba->T_cmb * (1.+z)-preio->reionization_table[i*preio->re_size+preio->index_re_Tb])/pvecback[pba->index_bg_H];
+      //(pba->T_cmb * (1.+z)-preio->reionization_table[i*preio->re_size+preio->index_re_Tb])/pvecback[pba->index_bg_H];
+      (pvecback[pba->index_bg_modified_T_cmb]-preio->reionization_table[i*preio->re_size+preio->index_re_Tb])/pvecback[pba->index_bg_H];
 
     if (preco->annihilation > 0) {
 
@@ -2879,7 +2896,9 @@ int thermodynamics_recombination_with_hyrec(
     /* cb2 = (k_B/mu) Tb (1-1/3 dlnTb/dlna) = (k_B/mu) Tb (1+1/3 (1+z) dlnTb/dz)
        with (1+z)dlnTb/dz= - [dlnTb/dlna] */
     *(preco->recombination_table+(Nz-i-1)*preco->re_size+preco->index_re_cb2)
-      = _k_B_ / ( _c_ * _c_ * _m_H_ ) * (1. + (1./_not4_ - 1.) * pth->YHe + xe * (1.-pth->YHe)) * Tm * (1. - rec_dTmdlna(xe, Tm, pba->T_cmb*(1.+z), Hz, param.fHe, param.nH0*pow((1+z),3)*1e-6, energy_injection_rate(&param,z)) / Tm / 3.);
+      = *(preco->recombination_table+(Nz-i-1)*preco->re_size+preco->index_re_wb)
+     // * (1. - rec_dTmdlna(xe, Tm, pvecback[pba->index_bg_modified_T_cmb], Hz, param.fHe, param.nH0*pow((1+z),3)*1e-6, energy_injection_rate(&param,z)) / Tm / 3.);
+     * (1. - rec_dTmdlna(xe, Tm, pvecback[pba->index_bg_modified_T_cmb], Hz, param.fHe, param.nH0*pow((1+z),3)*1e-6, energy_injection_rate(&param,z)) / Tm / 3.);
 
     /* dkappa/dtau = a n_e x_e sigma_T = a^{-2} n_e(today) x_e sigma_T (in units of 1/Mpc) */
     *(preco->recombination_table+(Nz-i-1)*preco->re_size+preco->index_re_dkappadtau)
@@ -3665,6 +3684,8 @@ int thermodynamics_merge_reco_and_reio(
     pth->thermodynamics_table[index_th*pth->th_size+pth->index_th_cb2]=
       preco->recombination_table[index_re*preco->re_size+preco->index_re_cb2];
   }
+
+  //flag line 4194 gh dcdm_sr
 
   /** - free the temporary structures */
 

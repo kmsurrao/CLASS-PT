@@ -30,16 +30,16 @@ with open(os.path.join('..', 'include', 'common.h'), 'r') as v_file:
             break
 
 setup(
-    name='classy',
+    name='classy_PT',
     version=VERSION,
     description='Python interface to the Cosmological Boltzmann code CLASS',
     url='http://www.class-code.net',
     cmdclass={'build_ext': build_ext},
-    ext_modules=[Extension("classy", ["classy.pyx"],
+    ext_modules=[Extension("classy_PT", ["classy.pyx"],
                            include_dirs=[nm.get_include(), "../include","/Users/gcabass/anaconda3/envs/openblas_test/include"],
                            libraries=liblist,
                            library_dirs=["../", GCCPATH],
-                           extra_link_args=['/Users/gcabass/anaconda3/envs/openblas_test/lib/libopenblas.dylib','-lgomp'],
+                           extra_link_args=['/global/homes/k/kmsurrao/anaconda3/lib/libopenblas.so','-lgomp','-lgsl','-lgslcblas'],
                            )],
     #data_files=[('bbn', ['../bbn/sBBN.dat'])]
 )
